@@ -13,18 +13,19 @@ overwrite each other's files. Fusion solves this with **git worktrees**: every
 agent gets a private checkout on its own throwaway branch, so they're fully
 isolated until you synthesize.
 
-```
-                     ┌─────────────┐
-        task ───────▶│  fusion-run │
-                     └──────┬──────┘
-            ┌───────────────┼───────────────┐
-            ▼               ▼                ▼
-     worktree: claude  worktree: gemini   worktree: …(configurable)
-       claude -p …       gemini -p …
-            │               │                │
-            └──────┬────────┴────────────────┘
-                   ▼
-        Claude session = aggregator  ──▶  merged result in your working tree
+```mermaid
+flowchart TD
+    task([task]) --> run[fusion-run]
+
+    run -->|git worktree| wc["worktree: claude<br/>claude -p …"]
+    run -->|git worktree| wg["worktree: gemini<br/>gemini -p …"]
+    run -->|git worktree| wx["worktree: … configurable<br/>codex / opencode / custom"]
+
+    wc --> agg{{Claude session<br/>= aggregator}}
+    wg --> agg
+    wx --> agg
+
+    agg --> out[(merged result in<br/>your working tree)]
 ```
 
 ## Requirements
