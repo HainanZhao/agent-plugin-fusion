@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "fusion-marketplace",
+  "description": "Multi-agent fusion plugin for Claude Code",
+  "owner": {
+    "name": "1988hz",
+    "email": "1988hz@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "fusion",
+      "description": "Fan a coding task out to Claude + Gemini in isolated git worktrees, then synthesize the best combined result.",
+      "category": "productivity",
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  ]
+}
