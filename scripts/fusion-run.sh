@@ -55,6 +55,12 @@ if [ -z "$PROMPT" ] && [ ! -t 0 ]; then
 fi
 [ -n "$PROMPT" ] || die "no task prompt given (pass as arg or on stdin)."
 
+# normalise an agent key into an env-var-safe suffix
+keyvar() { local k="${1^^}"; printf '%s' "${k//[^A-Z0-9]/_}"; }
+
+# resolve env override with a default: envget VAR_NAME default
+envget() { local n="$1"; printf '%s' "${!n:-$2}"; }
+
 # --- config ---------------------------------------------------------------
 AGENTS="${FUSION_AGENTS:-claude gemini}"
 BASE_REF="${FUSION_BASE_REF:-HEAD}"
@@ -65,6 +71,33 @@ CODEX_FLAGS="${FUSION_CODEX_FLAGS:---full-auto}"
 OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"
 WT_BASE="${FUSION_WORKTREE_DIR:-${TMPDIR:-/tmp}/fusion-wt}"
 
+# --- inline roster: leading @agent[:model] tokens on the prompt ------------
+# e.g.  fusion-run.sh "@gemini:gemini-3.1-pro @claude:opus  refactor the parser"
+# Picking the roster inline overrides FUSION_AGENTS for this run only. Only
+# @tokens naming a KNOWN/configured agent are consumed, so a task that
+# legitimately begins with "@something" is left intact.
+is_known_agent() {
+  case "$1" in claude|gemini|codex|opencode) return 0 ;; esac
+  local kv k c; kv="$(keyvar "$1")"; k="FUSION_KIND_$kv"; c="FUSION_CMD_$kv"
+  [ -n "${!k:-}" ] && return 0
+  [ -n "${!c:-}" ] && return 0
+  case " $AGENTS " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+inline_agents=""
+while [[ "$PROMPT" =~ ^@([^[:space:]:]+)(:([^[:space:]]+))?[[:space:]]+(.*)$ ]]; do
+  name="${BASH_REMATCH[1]}"; model="${BASH_REMATCH[3]}"; rest="${BASH_REMATCH[4]}"
+  is_known_agent "$name" || break
+  inline_agents+="${inline_agents:+ }$name"
+  [ -n "$model" ] && export "FUSION_MODEL_$(keyvar "$name")=$model"
+  PROMPT="$rest"
+done
+if [ -n "$inline_agents" ]; then
+  AGENTS="$inline_agents"
+  [ -n "$PROMPT" ] || die "agents specified but no task given."
+fi
+
 RUNID="$(date +%Y%m%d-%H%M%S)-$$"
 RUNDIR="$REPO_ROOT/.fusion/runs/$RUNID"
 mkdir -p "$RUNDIR" "$WT_BASE/$RUNID"
@@ -74,12 +107,6 @@ EXCLUDE_FILE="$REPO_ROOT/.git/info/exclude"
 if [ -f "$EXCLUDE_FILE" ] && ! grep -qxF '.fusion/' "$EXCLUDE_FILE" 2>/dev/null; then
   printf '.fusion/\n' >> "$EXCLUDE_FILE"
 fi
-
-# normalise an agent key into an env-var-safe suffix
-keyvar() { local k="${1^^}"; printf '%s' "${k//[^A-Z0-9]/_}"; }
-
-# resolve env override with a default: envget VAR_NAME default
-envget() { local n="$1"; printf '%s' "${!n:-$2}"; }
 
 run_one() {
   local key="$1"

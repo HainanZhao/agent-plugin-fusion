@@ -1,6 +1,6 @@
 ---
 description: Run a coding task across Claude + Gemini (configurable) in isolated git worktrees, then synthesize the best combined result.
-argument-hint: <the task to fuse, e.g. "add retry logic to the http client">
+argument-hint: '[@agent[:model] …] <task>  e.g. @gemini:gemini-3.1-pro add retry logic'
 ---
 
 # Fusion
@@ -11,9 +11,22 @@ in isolation, then you merge the best of their work into a single superior
 result. Each agent runs in its own **git worktree** so they never overwrite one
 another.
 
-Task to fuse: **$ARGUMENTS**
+Task to fuse (may begin with an inline roster): **$ARGUMENTS**
 
 If `$ARGUMENTS` is empty, ask the user what task to fuse, then stop.
+
+**Inline roster (optional).** The task may start with one or more
+`@agent[:model]` tokens that pick the roster for this run only, overriding the
+default (`claude gemini`) and any `FUSION_*` env:
+
+- `@gemini:gemini-3.1-pro fix the cache race` → run only Gemini on that model.
+- `@claude:opus @codex add a regression test` → those two agents/models.
+- `add retry logic` (no `@`) → default roster + default models.
+
+You do **not** parse this yourself — pass `$ARGUMENTS` verbatim to the
+orchestrator below; it strips and applies any leading `@agent[:model]` tokens
+(and only consumes ones that name a known/configured agent, so a task that
+really starts with `@something` is left alone).
 
 ## Phase 1 — Preflight
 

@@ -65,12 +65,32 @@ This will:
 2. Capture each agent's transcript (`<agent>.log`) and applyable diff (`<agent>.diff`).
 3. Have Claude study both, **synthesize** the best combined change into your
    working tree, and run your tests.
-4. Report what it took from each agent and offer to clean up.
+4. Report what it took from each agent, then clean up automatically.
 
-Clean up scratch worktrees/branches when you're done inspecting:
+### Picking the roster inline
+
+By default the roster is `claude gemini` (or whatever `FUSION_AGENTS` says). You
+can override it for a single run by starting the task with `@agent[:model]`
+tokens — no env vars needed:
 
 ```
-/fusion-cleanup <RUN_ID>     # or: /fusion-cleanup --all
+/fusion @gemini:gemini-3.1-pro fix the race in the cache   # just Gemini, that model
+/fusion @claude:opus @codex add a regression test          # those two agents/models
+/fusion add retry logic                                     # default roster + models
+```
+
+Only `@tokens` that name a known agent (`claude`, `gemini`, `codex`, `opencode`,
+or one you've configured) are consumed — a task that genuinely begins with
+`@something` is left untouched.
+
+### Cleanup is automatic
+
+`/fusion` removes its own worktrees once the merge is applied (set `FUSION_KEEP=1`
+to keep the raw candidates for inspection), and a SessionStart hook prunes any
+stale runs left by interrupted sessions. Manual control if you want it:
+
+```
+/fusion-cleanup <RUN_ID>     # or: --all  |  --stale [HOURS]
 ```
 
 ## How isolation works
