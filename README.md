@@ -101,11 +101,13 @@ candidates), and a SessionStart hook prunes stale runs. Manual:
 ## How isolation works
 
 Agents branch from `HEAD` into `fusion/<runid>/<agent>` worktrees (so
-**uncommitted changes aren't seen** — commit first if needed). The worktrees live
-in a hidden container *beside* the repo —
-`<repo-parent>/.fusion-worktrees/<repo-name>/<runid>/<agent>` — so they share the
-repo's filesystem and never nest inside your tree (override with
-`FUSION_WORKTREE_DIR`). Run artifacts live in `.fusion/runs/<runid>/`
+**uncommitted changes aren't seen** — commit first if needed). Each worktree is a flat
+**sibling** of the repo at the same depth —
+`<repo-parent>/<repo-name>-fusion-<runid>-<agent>` (e.g. `myproj-fusion-…-claude`
+next to `myproj`). Same depth matters: relative paths in your repo config (e.g.
+Gemini settings pointing at `../lib`) resolve the same from a worktree as from
+the repo. Override the parent dir with `FUSION_WORKTREE_DIR` (note: that nests
+them and breaks `../` depth). Run artifacts live in `.fusion/runs/<runid>/`
 (auto-excluded from git). Nothing touches your working tree until the aggregator
 applies the merge.
 
@@ -130,7 +132,7 @@ All via environment variables (`<KEY>` = agent name upper-cased, non-alphanumeri
 | `FUSION_OPENCODE_FLAGS` | `--dangerously-skip-permissions` | `opencode run` autonomy flags. |
 | `FUSION_TIMEOUT` | `0` | Per-agent timeout (s); `0` = none. |
 | `FUSION_BASE_REF` | `HEAD` | Ref the worktrees branch from. |
-| `FUSION_WORKTREE_DIR` | `<repo-parent>/.fusion-worktrees/<repo-name>` | Worktree base dir (sibling of the repo by default). |
+| `FUSION_WORKTREE_DIR` | — | Override worktree parent. Default: flat sibling `<repo-parent>/<repo-name>-fusion-<runid>-<agent>` (preserves `../` depth). |
 
 ```bash
 # four agents; two Claudes at different models + Gemini; or a custom CLI

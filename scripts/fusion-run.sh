@@ -41,8 +41,9 @@
 #   FUSION_OPENCODE_FLAGS  opencode run autonomy flags. Default: --dangerously-skip-permissions
 #   FUSION_TIMEOUT         Per-agent timeout in seconds.     Default: 0 (none)
 #   FUSION_BASE_REF        Git ref the worktrees branch from. Default: HEAD
-#   FUSION_WORKTREE_DIR    Base dir for worktrees.
-#                          Default: <repo-parent>/.fusion-worktrees/<repo-name>
+#   FUSION_WORKTREE_DIR    Override the worktree parent dir. Default places each
+#                          worktree as a flat repo sibling:
+#                          <repo-parent>/<repo-name>-fusion-<runid>-<agent>
 #
 # Where <KEY> is the agent name upper-cased with non-alphanumerics turned to
 # "_" (e.g. agent "gpt-5" => FUSION_KIND_GPT_5).
@@ -89,10 +90,22 @@ GEMINI_TRUST="${FUSION_GEMINI_TRUST:-true}"
 GEMINI_ISOLATE_FLAGS="${FUSION_GEMINI_ISOLATE_FLAGS--e none --allowed-mcp-server-names none}"
 CODEX_FLAGS="${FUSION_CODEX_FLAGS:---full-auto}"
 OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"
-# Worktrees live in a hidden container beside the repo (same filesystem as the
-# repo, near the project, survives /tmp cleanup). Override with
-# FUSION_WORKTREE_DIR (e.g. set it to "$TMPDIR/fusion-wt" for the old behaviour).
-WT_BASE="${FUSION_WORKTREE_DIR:-$(dirname "$REPO_ROOT")/.fusion-worktrees/$(basename "$REPO_ROOT")}"
+# Where each agent's worktree goes. By default it's a flat SIBLING of the repo at
+# the same directory depth — <repo-parent>/<repo-name>-fusion-<runid>-<agent> —
+# so relative paths in the repo's config (e.g. Gemini settings pointing at
+# ../lib) resolve the same as they do from the repo itself. Override the parent
+# with FUSION_WORKTREE_DIR (then worktrees are FUSION_WORKTREE_DIR/<runid>/<agent>,
+# which does NOT preserve ../ depth — only use it if your repo has no such links).
+REPO_PARENT="$(dirname "$REPO_ROOT")"
+REPO_NAME="$(basename "$REPO_ROOT")"
+# args: <runid> <agent>  ->  prints the worktree path
+worktree_path() {
+  if [ -n "${FUSION_WORKTREE_DIR:-}" ]; then
+    printf '%s/%s/%s' "$FUSION_WORKTREE_DIR" "$1" "$2"
+  else
+    printf '%s/%s-fusion-%s-%s' "$REPO_PARENT" "$REPO_NAME" "$1" "$2"
+  fi
+}
 
 # --- inline roster: leading @agent[:model] tokens on the prompt ------------
 # e.g.  fusion-run.sh "@gemini:gemini-3.1-pro  refactor the parser"
@@ -134,7 +147,7 @@ fi
 
 RUNID="$(date +%Y%m%d-%H%M%S)-$$"
 RUNDIR="$REPO_ROOT/.fusion/runs/$RUNID"
-mkdir -p "$RUNDIR" "$WT_BASE/$RUNID"
+mkdir -p "$RUNDIR"
 
 # Keep fusion's bookkeeping out of the user's git status.
 EXCLUDE_FILE="$REPO_ROOT/.git/info/exclude"
@@ -160,11 +173,12 @@ run_one() {
     esac
   fi
 
-  local wt="$WT_BASE/$RUNID/$key"
+  local wt; wt="$(worktree_path "$RUNID" "$key")"
   local branch="fusion/$RUNID/$key"
   local log="$RUNDIR/$key.log"
   local status_file="$RUNDIR/$key.status"
 
+  mkdir -p "$(dirname "$wt")"
   if ! git -C "$REPO_ROOT" worktree add -b "$branch" "$wt" "$BASE_REF" >>"$log" 2>&1; then
     err "[$key] failed to create worktree"
     printf 'worktree-failed' > "$status_file"

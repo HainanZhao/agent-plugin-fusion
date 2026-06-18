@@ -10,6 +10,10 @@
 #                                    #   $FUSION_STALE_HOURS or 6). Silent + exit
 #                                    #   0 when nothing applies — safe for hooks.
 #
+# Layout-agnostic: worktree directories are located via git's own worktree
+# records (`git worktree remove` deletes the directory), so this works no matter
+# where fusion-run.sh placed them.
+#
 set -uo pipefail
 
 die() { printf 'fusion-cleanup: %s\n' "$*" >&2; exit 1; }
@@ -26,47 +30,43 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
   [ "$QUIET" = 1 ] && exit 0
   die "not inside a git repository."
 }
-# Must match fusion-run.sh: hidden container beside the repo by default.
-WT_BASE="${FUSION_WORKTREE_DIR:-$(dirname "$REPO_ROOT")/.fusion-worktrees/$(basename "$REPO_ROOT")}"
 RUNS_DIR="$REPO_ROOT/.fusion/runs"
+
+# Remove the worktree bound to a branch (if any) and delete the branch.
+remove_branch_worktree() {
+  local branch="$1" wt
+  wt="$(git -C "$REPO_ROOT" worktree list --porcelain \
+        | awk -v b="refs/heads/$branch" '
+            /^worktree /{p=substr($0,10)}
+            /^branch /{if($2==b) print p}')"
+  if [ -n "$wt" ]; then
+    git -C "$REPO_ROOT" worktree remove --force "$wt" 2>/dev/null \
+      && echo "  removed worktree $wt"
+  fi
+  git -C "$REPO_ROOT" branch -D "$branch" >/dev/null 2>&1 \
+    && echo "  deleted branch $branch"
+}
+
+# Clean every branch matching a ref prefix, then prune.
+clean_filter() {
+  while IFS= read -r branch; do
+    [ -n "$branch" ] || continue
+    remove_branch_worktree "$branch"
+  done < <(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "$1")
+  git -C "$REPO_ROOT" worktree prune
+}
 
 # Clean a single run id: its worktrees, branches, and artifacts.
 clean_run() {
-  local runid="$1"
-  local filter="refs/heads/fusion/$runid/"
-  while IFS= read -r branch; do
-    [ -n "$branch" ] || continue
-    local wt
-    wt="$(git -C "$REPO_ROOT" worktree list --porcelain \
-          | awk -v b="refs/heads/$branch" '
-              /^worktree /{p=$2}
-              /^branch /{if($2==b) print p}')"
-    if [ -n "$wt" ]; then
-      git -C "$REPO_ROOT" worktree remove --force "$wt" 2>/dev/null \
-        && echo "  removed worktree $wt"
-    fi
-    git -C "$REPO_ROOT" branch -D "$branch" >/dev/null 2>&1 \
-      && echo "  deleted branch $branch"
-  done < <(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "$filter")
-  rm -rf "${WT_BASE:?}/$runid" "$RUNS_DIR/$runid"
+  clean_filter "refs/heads/fusion/$1/"
+  rm -rf "$RUNS_DIR/$1"
 }
 
 case "$TARGET" in
   --all)
     echo "Cleaning ALL fusion runs…"
-    while IFS= read -r branch; do
-      [ -n "$branch" ] || continue
-      wt="$(git -C "$REPO_ROOT" worktree list --porcelain \
-            | awk -v b="refs/heads/$branch" '
-                /^worktree /{p=$2}
-                /^branch /{if($2==b) print p}')"
-      [ -n "$wt" ] && git -C "$REPO_ROOT" worktree remove --force "$wt" 2>/dev/null \
-        && echo "  removed worktree $wt"
-      git -C "$REPO_ROOT" branch -D "$branch" >/dev/null 2>&1 \
-        && echo "  deleted branch $branch"
-    done < <(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' refs/heads/fusion/)
-    git -C "$REPO_ROOT" worktree prune
-    rm -rf "$WT_BASE" "$RUNS_DIR"
+    clean_filter "refs/heads/fusion/"
+    rm -rf "$RUNS_DIR"
     echo "Done."
     ;;
 
@@ -86,13 +86,11 @@ case "$TARGET" in
       clean_run "${d##*/}"
     done < <(find "$RUNS_DIR" -mindepth 1 -maxdepth 1 -type d \
                   -mmin "+$((hours * 60))" 2>/dev/null)
-    [ "$found" -eq 1 ] && git -C "$REPO_ROOT" worktree prune
     ;;
 
   *)
     echo "Cleaning fusion run $TARGET…"
     clean_run "$TARGET"
-    git -C "$REPO_ROOT" worktree prune
     echo "Done."
     ;;
 esac
