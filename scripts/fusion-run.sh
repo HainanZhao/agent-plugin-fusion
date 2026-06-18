@@ -20,8 +20,8 @@
 #
 # Configuration (all optional, via environment):
 #   FUSION_AGENTS          Space-separated roster.   Default: "claude gemini"
-#   FUSION_KIND_<KEY>      Agent kind: claude|gemini|custom (default inferred
-#                          from the key name; unknown names => custom).
+#   FUSION_KIND_<KEY>      Agent kind: claude|gemini|codex|opencode|custom
+#                          (default inferred from key name; unknown => custom).
 #   FUSION_MODEL_<KEY>     Model passed to that agent (optional).
 #   FUSION_EXTRA_<KEY>     Extra raw CLI flags appended to a known-kind agent.
 #   FUSION_CMD_<KEY>       For kind=custom: a command line run via `bash -c`
@@ -29,6 +29,8 @@
 #                          $FUSION_MODEL exported for it to use.
 #   FUSION_CLAUDE_PERM     claude --permission-mode value.  Default: acceptEdits
 #   FUSION_GEMINI_APPROVAL gemini --approval-mode value.     Default: yolo
+#   FUSION_CODEX_FLAGS     codex exec autonomy flags.        Default: --full-auto
+#   FUSION_OPENCODE_FLAGS  opencode run autonomy flags. Default: --dangerously-skip-permissions
 #   FUSION_TIMEOUT         Per-agent timeout in seconds.     Default: 0 (none)
 #   FUSION_BASE_REF        Git ref the worktrees branch from. Default: HEAD
 #   FUSION_WORKTREE_DIR    Base dir for worktrees. Default: $TMPDIR/fusion-wt
@@ -59,6 +61,8 @@ BASE_REF="${FUSION_BASE_REF:-HEAD}"
 TIMEOUT="${FUSION_TIMEOUT:-0}"
 CLAUDE_PERM="${FUSION_CLAUDE_PERM:-acceptEdits}"
 GEMINI_APPROVAL="${FUSION_GEMINI_APPROVAL:-yolo}"
+CODEX_FLAGS="${FUSION_CODEX_FLAGS:---full-auto}"
+OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"
 WT_BASE="${FUSION_WORKTREE_DIR:-${TMPDIR:-/tmp}/fusion-wt}"
 
 RUNID="$(date +%Y%m%d-%H%M%S)-$$"
@@ -87,9 +91,11 @@ run_one() {
 
   if [ -z "$kind" ]; then
     case "$key" in
-      claude) kind=claude ;;
-      gemini) kind=gemini ;;
-      *)      kind=custom ;;
+      claude)   kind=claude ;;
+      gemini)   kind=gemini ;;
+      codex)    kind=codex ;;
+      opencode) kind=opencode ;;
+      *)        kind=custom ;;
     esac
   fi
 
@@ -118,6 +124,21 @@ run_one() {
       cmd=(gemini -p "$PROMPT" --approval-mode "$GEMINI_APPROVAL")
       [ -n "$model" ] && cmd+=(--model "$model")
       cmd+=("${extra_arr[@]}")
+      ;;
+    codex)
+      # OpenAI Codex CLI headless: `codex exec <prompt>`. --full-auto = auto
+      # approve + workspace-write sandbox (the documented CI/unattended mode).
+      local codex_arr=(); read -r -a codex_arr <<< "$CODEX_FLAGS"
+      cmd=(codex exec "${codex_arr[@]}")
+      [ -n "$model" ] && cmd+=(--model "$model")
+      cmd+=("${extra_arr[@]}" "$PROMPT")
+      ;;
+    opencode)
+      # opencode headless: `opencode run <message>`. Model is provider/model.
+      local oc_arr=(); read -r -a oc_arr <<< "$OPENCODE_FLAGS"
+      cmd=(opencode run "${oc_arr[@]}")
+      [ -n "$model" ] && cmd+=(--model "$model")
+      cmd+=("${extra_arr[@]}" "$PROMPT")
       ;;
     custom)
       local tmpl; tmpl="$(envget "FUSION_CMD_$KV" "")"

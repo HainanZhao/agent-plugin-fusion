@@ -30,9 +30,18 @@ isolated until you synthesize.
 ## Requirements
 
 - A **git repository** (worktrees need it). `git init` if you haven't.
-- [`claude`](https://docs.claude.com/en/docs/claude-code) on `PATH`.
-- [`gemini`](https://github.com/google-gemini/gemini-cli) on `PATH` (only if you
-  keep `gemini` in the roster — the roster is configurable).
+- The CLIs for whichever agents are in your roster, on `PATH`. Built-in agents
+  (each runs in its own headless/non-interactive mode):
+
+  | Agent | CLI | Headless invocation fusion uses |
+  |---|---|---|
+  | `claude` | [Claude Code](https://docs.claude.com/en/docs/claude-code) | `claude -p … --permission-mode acceptEdits` |
+  | `gemini` | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `gemini -p … --approval-mode yolo` |
+  | `codex` | [OpenAI Codex CLI](https://github.com/openai/codex) | `codex exec --full-auto …` |
+  | `opencode` | [opencode](https://github.com/sst/opencode) | `opencode run --dangerously-skip-permissions …` |
+
+  Any other CLI with a headless mode can be added as a `custom` agent (see below).
+  You only need the CLIs for agents you actually put in `FUSION_AGENTS`.
 
 ## Install
 
@@ -82,12 +91,14 @@ Everything is environment-variable driven, so you can set it per-shell, in
 | Variable | Default | Meaning |
 |---|---|---|
 | `FUSION_AGENTS` | `claude gemini` | Space-separated roster. Add/remove/repeat agents. |
-| `FUSION_KIND_<KEY>` | inferred | `claude` \| `gemini` \| `custom`. Inferred from the name; anything unknown defaults to `custom`. |
-| `FUSION_MODEL_<KEY>` | — | Model passed to that agent (e.g. `opus`, `gemini-2.5-pro`). |
+| `FUSION_KIND_<KEY>` | inferred | `claude` \| `gemini` \| `codex` \| `opencode` \| `custom`. Inferred from the name; anything unknown defaults to `custom`. |
+| `FUSION_MODEL_<KEY>` | — | Model passed to that agent (e.g. `opus`, `gemini-2.5-pro`, `o4-mini`, `anthropic/claude-sonnet-4-6`). |
 | `FUSION_EXTRA_<KEY>` | — | Extra raw CLI flags appended to a known-kind agent. |
 | `FUSION_CMD_<KEY>` | — | For `kind=custom`: a command run via `bash -c` inside the worktree, with `$FUSION_PROMPT` / `$FUSION_MODEL` exported. |
 | `FUSION_CLAUDE_PERM` | `acceptEdits` | `claude --permission-mode` value. |
 | `FUSION_GEMINI_APPROVAL` | `yolo` | `gemini --approval-mode` value. |
+| `FUSION_CODEX_FLAGS` | `--full-auto` | Autonomy flags for `codex exec`. |
+| `FUSION_OPENCODE_FLAGS` | `--dangerously-skip-permissions` | Autonomy flags for `opencode run`. |
 | `FUSION_TIMEOUT` | `0` | Per-agent timeout in seconds (`0` = none). |
 | `FUSION_BASE_REF` | `HEAD` | Git ref the worktrees branch from. |
 | `FUSION_WORKTREE_DIR` | `$TMPDIR/fusion-wt` | Base dir for worktrees. |
@@ -96,6 +107,14 @@ Everything is environment-variable driven, so you can set it per-shell, in
 reads `FUSION_KIND_GPT_5`, `FUSION_CMD_GPT_5`, …).
 
 ### Examples
+
+Fan out across four mainstream agents:
+
+```bash
+export FUSION_AGENTS="claude gemini codex opencode"
+export FUSION_MODEL_OPENCODE="anthropic/claude-sonnet-4-6"
+/fusion add retry-with-backoff to the HTTP client and cover it with a test
+```
 
 Three agents — two Claudes at different models plus Gemini:
 
