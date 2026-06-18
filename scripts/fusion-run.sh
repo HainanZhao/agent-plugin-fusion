@@ -58,8 +58,9 @@ if [ -z "$PROMPT" ] && [ ! -t 0 ]; then
 fi
 [ -n "$PROMPT" ] || die "no task prompt given (pass as arg or on stdin)."
 
-# normalise an agent key into an env-var-safe suffix
-keyvar() { local k="${1^^}"; printf '%s' "${k//[^A-Z0-9]/_}"; }
+# normalise an agent key into an env-var-safe suffix (bash 3.2 / macOS safe:
+# avoids the bash-4 ${x^^} uppercase expansion).
+keyvar() { printf '%s' "$1" | LC_ALL=C tr 'a-z' 'A-Z' | LC_ALL=C tr -c 'A-Z0-9' '_'; }
 
 # resolve env override with a default: envget VAR_NAME default
 envget() { local n="$1"; printf '%s' "${!n:-$2}"; }
@@ -151,7 +152,8 @@ run_one() {
     return 0
   fi
 
-  # Build the invocation.
+  # Build the invocation. The ${arr[@]+"${arr[@]}"} idiom expands to nothing for
+  # an empty array without tripping `set -u` on bash < 4.4 (e.g. macOS 3.2).
   local -a cmd
   local extra_arr=(); [ -n "$extra" ] && read -r -a extra_arr <<< "$extra"
 
@@ -159,27 +161,29 @@ run_one() {
     claude)
       cmd=(claude -p "$PROMPT" --permission-mode "$CLAUDE_PERM")
       [ -n "$model" ] && cmd+=(--model "$model")
-      cmd+=("${extra_arr[@]}")
+      cmd+=(${extra_arr[@]+"${extra_arr[@]}"})
       ;;
     gemini)
       cmd=(gemini -p "$PROMPT" --approval-mode "$GEMINI_APPROVAL")
       [ -n "$model" ] && cmd+=(--model "$model")
-      cmd+=("${extra_arr[@]}")
+      cmd+=(${extra_arr[@]+"${extra_arr[@]}"})
       ;;
     codex)
       # OpenAI Codex CLI headless: `codex exec <prompt>`. --full-auto = auto
       # approve + workspace-write sandbox (the documented CI/unattended mode).
       local codex_arr=(); read -r -a codex_arr <<< "$CODEX_FLAGS"
-      cmd=(codex exec "${codex_arr[@]}")
+      cmd=(codex exec)
+      cmd+=(${codex_arr[@]+"${codex_arr[@]}"})
       [ -n "$model" ] && cmd+=(--model "$model")
-      cmd+=("${extra_arr[@]}" "$PROMPT")
+      cmd+=(${extra_arr[@]+"${extra_arr[@]}"} "$PROMPT")
       ;;
     opencode)
       # opencode headless: `opencode run <message>`. Model is provider/model.
       local oc_arr=(); read -r -a oc_arr <<< "$OPENCODE_FLAGS"
-      cmd=(opencode run "${oc_arr[@]}")
+      cmd=(opencode run)
+      cmd+=(${oc_arr[@]+"${oc_arr[@]}"})
       [ -n "$model" ] && cmd+=(--model "$model")
-      cmd+=("${extra_arr[@]}" "$PROMPT")
+      cmd+=(${extra_arr[@]+"${extra_arr[@]}"} "$PROMPT")
       ;;
     custom)
       local tmpl; tmpl="$(envget "FUSION_CMD_$KV" "")"

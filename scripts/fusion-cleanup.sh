@@ -72,15 +72,20 @@ case "$TARGET" in
   --stale)
     hours="${2:-${FUSION_STALE_HOURS:-6}}"
     [ -d "$RUNS_DIR" ] || exit 0
-    # Run dirs untouched for more than $hours are considered abandoned.
-    mapfile -t stale < <(find "$RUNS_DIR" -mindepth 1 -maxdepth 1 -type d \
-                          -mmin "+$((hours * 60))" -printf '%f\n' 2>/dev/null)
-    [ "${#stale[@]}" -gt 0 ] || exit 0
-    echo "fusion: pruning ${#stale[@]} stale run(s) (>${hours}h old)…" >&2
-    for runid in "${stale[@]}"; do
-      clean_run "$runid"
-    done
-    git -C "$REPO_ROOT" worktree prune
+    # Run dirs untouched for more than $hours are considered abandoned. Avoid
+    # `mapfile` (bash 4) and `find -printf` (GNU-only) so this works on macOS
+    # too; -mmin/-maxdepth are supported by both BSD and GNU find.
+    found=0
+    while IFS= read -r d; do
+      [ -n "$d" ] || continue
+      if [ "$found" -eq 0 ]; then
+        echo "fusion: pruning stale run(s) (>${hours}h old)…" >&2
+        found=1
+      fi
+      clean_run "${d##*/}"
+    done < <(find "$RUNS_DIR" -mindepth 1 -maxdepth 1 -type d \
+                  -mmin "+$((hours * 60))" 2>/dev/null)
+    [ "$found" -eq 1 ] && git -C "$REPO_ROOT" worktree prune
     ;;
 
   *)

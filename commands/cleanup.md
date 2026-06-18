@@ -11,9 +11,9 @@ artifacts from a fusion run.
 Target: **$ARGUMENTS** (a run id, `--all` for every fusion run, or `--stale [HRS]`
 for only abandoned runs older than HRS).
 
-> Cleanup is normally **automatic**: `/fusion` cleans its own run when it finishes,
-> and a SessionStart hook prunes stale leftovers. Use this command for manual
-> control (e.g. `--all` to wipe everything, or to clean a kept run).
+> Cleanup is normally **automatic**: `/fusion:run` cleans its own run when it
+> finishes, and a SessionStart hook prunes stale leftovers. Use this command for
+> manual control (e.g. `--all` to wipe everything, or to clean a kept run).
 
 1. If `$ARGUMENTS` is empty, list existing runs so the user can choose:
    - `git worktree list` (look for paths under the fusion worktree base)

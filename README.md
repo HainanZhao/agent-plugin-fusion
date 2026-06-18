@@ -51,9 +51,9 @@ Use the full `https://…` URL (the `owner/repo` shorthand can clone over SSH an
 fail until you've run `ssh -T git@github.com` once). For local dev:
 `/plugin marketplace add ./`.
 
-The command is invoked as **`/fusion:fusion`** (plugin commands are always
-`plugin:command`). To type just **`/fusion`**, drop the included wrapper into your
-user commands:
+The commands are **`/fusion:run`** and **`/fusion:cleanup`** (plugin commands are
+always `plugin:command`). To type just **`/fusion`**, drop the included wrapper
+into your user commands:
 
 ```bash
 mkdir -p ~/.claude/commands && curl -fsSL \
@@ -62,7 +62,7 @@ mkdir -p ~/.claude/commands && curl -fsSL \
 ```
 
 (or copy `extras/fusion.md` from a local checkout). It just forwards to
-`/fusion:fusion`.
+`/fusion:run`.
 
 **Requires** a git repo plus the CLIs for the agents you use. Built-ins (each run
 headless): `claude`, `gemini`, `codex`, `opencode`. Any other headless CLI works
@@ -94,9 +94,9 @@ Only `@tokens` naming a known/configured agent are consumed. Set
 
 ### Cleanup
 
-Automatic: `/fusion` cleans its own run (set `FUSION_KEEP=1` to keep candidates),
-and a SessionStart hook prunes stale runs. Manual:
-`/fusion-cleanup <RUN_ID> | --all | --stale [HOURS]`.
+Automatic: `/fusion:run` cleans its own run (set `FUSION_KEEP=1` to keep
+candidates), and a SessionStart hook prunes stale runs. Manual:
+`/fusion:cleanup <RUN_ID> | --all | --stale [HOURS]`.
 
 ## How isolation works
 
