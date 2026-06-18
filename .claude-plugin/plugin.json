@@ -1,7 +1,7 @@
 {
   "name": "fusion",
   "description": "Fan a coding task out to multiple agents (Claude, Gemini, Codex, opencode — configurable) running in parallel in isolated git worktrees, then synthesize the best combined result. Inspired by OpenRouter's fusion API.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "1988hz",
     "email": "1988hz@gmail.com"

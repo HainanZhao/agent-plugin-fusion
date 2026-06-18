@@ -72,10 +72,14 @@ OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"
 WT_BASE="${FUSION_WORKTREE_DIR:-${TMPDIR:-/tmp}/fusion-wt}"
 
 # --- inline roster: leading @agent[:model] tokens on the prompt ------------
-# e.g.  fusion-run.sh "@gemini:gemini-3.1-pro @claude:opus  refactor the parser"
-# Picking the roster inline overrides FUSION_AGENTS for this run only. Only
-# @tokens naming a KNOWN/configured agent are consumed, so a task that
-# legitimately begins with "@something" is left intact.
+# e.g.  fusion-run.sh "@gemini:gemini-3.1-pro  refactor the parser"
+# Inline agents are ADDED to a baseline agent (Claude by default), so:
+#   @gemini:x <task>            -> fuse claude + gemini      (2 candidates)
+#   @claude:opus @codex <task>  -> fuse claude(opus) + codex (2 candidates)
+#   @gemini @codex <task>       -> fuse claude + gemini + codex (3 candidates)
+# The baseline is FUSION_BASE_AGENT (default "claude"); set it empty to run only
+# the agents you list. Only @tokens naming a KNOWN/configured agent are consumed,
+# so a task that legitimately begins with "@something" is left intact.
 is_known_agent() {
   case "$1" in claude|gemini|codex|opencode) return 0 ;; esac
   local kv k c; kv="$(keyvar "$1")"; k="FUSION_KIND_$kv"; c="FUSION_CMD_$kv"
@@ -94,8 +98,15 @@ while [[ "$PROMPT" =~ ^@([^[:space:]:]+)(:([^[:space:]]+))?[[:space:]]+(.*)$ ]];
   PROMPT="$rest"
 done
 if [ -n "$inline_agents" ]; then
-  AGENTS="$inline_agents"
   [ -n "$PROMPT" ] || die "agents specified but no task given."
+  # Always fold in the baseline agent (Claude) unless it's already listed or
+  # the user disabled it with FUSION_BASE_AGENT="".
+  base="${FUSION_BASE_AGENT-claude}"
+  if [ -n "$base" ] && [[ " $inline_agents " != *" $base "* ]]; then
+    AGENTS="$base $inline_agents"
+  else
+    AGENTS="$inline_agents"
+  fi
 fi
 
 RUNID="$(date +%Y%m%d-%H%M%S)-$$"

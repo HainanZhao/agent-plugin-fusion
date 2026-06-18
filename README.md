@@ -69,19 +69,23 @@ This will:
 
 ### Picking the roster inline
 
-By default the roster is `claude gemini` (or whatever `FUSION_AGENTS` says). You
-can override it for a single run by starting the task with `@agent[:model]`
-tokens — no env vars needed:
+Start the task with `@agent[:model]` tokens to add agents for a single run — no
+env vars needed. **Claude is always folded in as the baseline**, so the agents
+you name are fused *with* Claude:
 
 ```
-/fusion @gemini:gemini-3.1-pro fix the race in the cache   # just Gemini, that model
-/fusion @claude:opus @codex add a regression test          # those two agents/models
-/fusion add retry logic                                     # default roster + models
+/fusion @gemini:gemini-3.1-pro fix the race    # Claude + Gemini            (merge of 2)
+/fusion @gemini @codex add a regression test   # Claude + Gemini + Codex    (merge of 3)
+/fusion @claude:opus @gemini refactor auth     # Claude(opus) + Gemini  (Claude not doubled)
+/fusion add retry logic                         # default roster: claude gemini
 ```
 
-Only `@tokens` that name a known agent (`claude`, `gemini`, `codex`, `opencode`,
-or one you've configured) are consumed — a task that genuinely begins with
-`@something` is left untouched.
+- Only `@tokens` naming a known agent (`claude`, `gemini`, `codex`, `opencode`,
+  or one you've configured) are consumed — a task that genuinely begins with
+  `@something` is left untouched.
+- To drop the implicit Claude baseline (run only what you list), set
+  `FUSION_BASE_AGENT=""`. To make a *different* agent the baseline, set it to that
+  name.
 
 ### Cleanup is automatic
 
@@ -110,7 +114,8 @@ Everything is environment-variable driven, so you can set it per-shell, in
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `FUSION_AGENTS` | `claude gemini` | Space-separated roster. Add/remove/repeat agents. |
+| `FUSION_AGENTS` | `claude gemini` | Space-separated default roster (used when no inline `@agent` is given). |
+| `FUSION_BASE_AGENT` | `claude` | Agent always folded into an inline `@agent` roster. Empty = no baseline. |
 | `FUSION_KIND_<KEY>` | inferred | `claude` \| `gemini` \| `codex` \| `opencode` \| `custom`. Inferred from the name; anything unknown defaults to `custom`. |
 | `FUSION_MODEL_<KEY>` | — | Model passed to that agent (e.g. `opus`, `gemini-2.5-pro`, `o4-mini`, `anthropic/claude-sonnet-4-6`). |
 | `FUSION_EXTRA_<KEY>` | — | Extra raw CLI flags appended to a known-kind agent. |

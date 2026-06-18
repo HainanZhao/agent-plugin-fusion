@@ -16,12 +16,15 @@ Task to fuse (may begin with an inline roster): **$ARGUMENTS**
 If `$ARGUMENTS` is empty, ask the user what task to fuse, then stop.
 
 **Inline roster (optional).** The task may start with one or more
-`@agent[:model]` tokens that pick the roster for this run only, overriding the
-default (`claude gemini`) and any `FUSION_*` env:
+`@agent[:model]` tokens. These are **added to Claude** (the baseline), so you
+always fuse Claude with the agents you name:
 
-- `@gemini:gemini-3.1-pro fix the cache race` → run only Gemini on that model.
-- `@claude:opus @codex add a regression test` → those two agents/models.
-- `add retry logic` (no `@`) → default roster + default models.
+- `@gemini:gemini-3.1-pro fix the cache race` → fuse **Claude + Gemini** (2 candidates).
+- `@gemini @codex add a regression test` → fuse **Claude + Gemini + Codex** (3 candidates).
+- `@claude:opus @gemini …` → **Claude(opus) + Gemini** (Claude isn't doubled; your model wins).
+- `add retry logic` (no `@`) → default roster + default models (`claude gemini`).
+
+To run *without* the implicit Claude baseline, set `FUSION_BASE_AGENT=""`.
 
 You do **not** parse this yourself — pass `$ARGUMENTS` verbatim to the
 orchestrator below; it strips and applies any leading `@agent[:model]` tokens
