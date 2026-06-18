@@ -73,11 +73,19 @@ Give the user a concise comparison:
 - What you took from each and why (the fusion decisions).
 - The final state of the working tree (files changed, test results).
 
-Then offer cleanup of the scratch worktrees/branches:
+Then **clean up automatically** — the merged result is already in the working
+tree, so the scratch worktrees/branches are no longer needed:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/fusion-cleanup.sh" <RUN_ID>
 ```
 
-Don't run cleanup until the user is satisfied — the worktrees and diffs are
-useful if they want to inspect a raw candidate.
+Run this once the merge is applied and reported. Two exceptions, both honored
+silently:
+- If the user set `FUSION_KEEP=1` (or `FUSION_KEEP=true`), **skip** cleanup and
+  instead tell them where the raw candidates live so they can inspect them.
+- If synthesis failed or you're unsure the merge is correct, **skip** cleanup and
+  leave the worktrees for inspection — say so explicitly.
+
+(A SessionStart hook also auto-prunes any stale runs left over from interrupted
+sessions, so nothing accumulates even if a run is abandoned.)

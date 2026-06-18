@@ -1,0 +1,16 @@
+{
+  "description": "fusion — auto-prune stale worktrees from interrupted runs at session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/fusion-cleanup.sh\" --stale >/dev/null 2>&1 || true",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
