@@ -101,9 +101,13 @@ candidates), and a SessionStart hook prunes stale runs. Manual:
 ## How isolation works
 
 Agents branch from `HEAD` into `fusion/<runid>/<agent>` worktrees (so
-**uncommitted changes aren't seen** — commit first if needed). Artifacts live in
-`.fusion/runs/<runid>/` (auto-excluded from git). Nothing touches your working
-tree until the aggregator applies the merge.
+**uncommitted changes aren't seen** — commit first if needed). The worktrees live
+in a hidden container *beside* the repo —
+`<repo-parent>/.fusion-worktrees/<repo-name>/<runid>/<agent>` — so they share the
+repo's filesystem and never nest inside your tree (override with
+`FUSION_WORKTREE_DIR`). Run artifacts live in `.fusion/runs/<runid>/`
+(auto-excluded from git). Nothing touches your working tree until the aggregator
+applies the merge.
 
 ## Configuration
 
@@ -126,7 +130,7 @@ All via environment variables (`<KEY>` = agent name upper-cased, non-alphanumeri
 | `FUSION_OPENCODE_FLAGS` | `--dangerously-skip-permissions` | `opencode run` autonomy flags. |
 | `FUSION_TIMEOUT` | `0` | Per-agent timeout (s); `0` = none. |
 | `FUSION_BASE_REF` | `HEAD` | Ref the worktrees branch from. |
-| `FUSION_WORKTREE_DIR` | `$TMPDIR/fusion-wt` | Worktree base dir. |
+| `FUSION_WORKTREE_DIR` | `<repo-parent>/.fusion-worktrees/<repo-name>` | Worktree base dir (sibling of the repo by default). |
 
 ```bash
 # four agents; two Claudes at different models + Gemini; or a custom CLI

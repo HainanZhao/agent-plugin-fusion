@@ -26,7 +26,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
   [ "$QUIET" = 1 ] && exit 0
   die "not inside a git repository."
 }
-WT_BASE="${FUSION_WORKTREE_DIR:-${TMPDIR:-/tmp}/fusion-wt}"
+# Must match fusion-run.sh: hidden container beside the repo by default.
+WT_BASE="${FUSION_WORKTREE_DIR:-$(dirname "$REPO_ROOT")/.fusion-worktrees/$(basename "$REPO_ROOT")}"
 RUNS_DIR="$REPO_ROOT/.fusion/runs"
 
 # Clean a single run id: its worktrees, branches, and artifacts.

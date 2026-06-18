@@ -41,7 +41,8 @@
 #   FUSION_OPENCODE_FLAGS  opencode run autonomy flags. Default: --dangerously-skip-permissions
 #   FUSION_TIMEOUT         Per-agent timeout in seconds.     Default: 0 (none)
 #   FUSION_BASE_REF        Git ref the worktrees branch from. Default: HEAD
-#   FUSION_WORKTREE_DIR    Base dir for worktrees. Default: $TMPDIR/fusion-wt
+#   FUSION_WORKTREE_DIR    Base dir for worktrees.
+#                          Default: <repo-parent>/.fusion-worktrees/<repo-name>
 #
 # Where <KEY> is the agent name upper-cased with non-alphanumerics turned to
 # "_" (e.g. agent "gpt-5" => FUSION_KIND_GPT_5).
@@ -88,7 +89,10 @@ GEMINI_TRUST="${FUSION_GEMINI_TRUST:-true}"
 GEMINI_ISOLATE_FLAGS="${FUSION_GEMINI_ISOLATE_FLAGS--e none --allowed-mcp-server-names none}"
 CODEX_FLAGS="${FUSION_CODEX_FLAGS:---full-auto}"
 OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"
-WT_BASE="${FUSION_WORKTREE_DIR:-${TMPDIR:-/tmp}/fusion-wt}"
+# Worktrees live in a hidden container beside the repo (same filesystem as the
+# repo, near the project, survives /tmp cleanup). Override with
+# FUSION_WORKTREE_DIR (e.g. set it to "$TMPDIR/fusion-wt" for the old behaviour).
+WT_BASE="${FUSION_WORKTREE_DIR:-$(dirname "$REPO_ROOT")/.fusion-worktrees/$(basename "$REPO_ROOT")}"
 
 # --- inline roster: leading @agent[:model] tokens on the prompt ------------
 # e.g.  fusion-run.sh "@gemini:gemini-3.1-pro  refactor the parser"
