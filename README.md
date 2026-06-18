@@ -36,13 +36,14 @@ isolated until you synthesize.
 
 ## Install
 
-```bash
-# from anywhere
-/plugin marketplace add /root/projects/agent-plugin-fusion
+```text
+/plugin marketplace add HainanZhao/agent-plugin-fusion
 /plugin install fusion@fusion-marketplace
 ```
 
-(or point the marketplace at your git remote once you push this repo.)
+The repo doubles as its own marketplace (it ships a `.claude-plugin/marketplace.json`),
+so there's nothing else to host. For local development you can instead point the
+marketplace at a checkout: `/plugin marketplace add ./` from the repo root.
 
 ## Usage
 
