@@ -15,6 +15,22 @@ flowchart TD
     wg --> agg
     wx --> agg
     agg --> out[(merged result in<br/>your working tree)]
+
+    classDef task fill:#fde68a,stroke:#d97706,stroke-width:2px,color:#111
+    classDef run fill:#a7f3d0,stroke:#059669,stroke-width:2px,color:#111
+    classDef claude fill:#ddd6fe,stroke:#7c3aed,stroke-width:2px,color:#111
+    classDef gemini fill:#bfdbfe,stroke:#2563eb,stroke-width:2px,color:#111
+    classDef other fill:#fbcfe8,stroke:#db2777,stroke-width:2px,color:#111
+    classDef agg fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#111
+    classDef out fill:#bbf7d0,stroke:#16a34a,stroke-width:3px,color:#111
+
+    class task task
+    class run run
+    class wc claude
+    class wg gemini
+    class wx other
+    class agg agg
+    class out out
 ```
 
 ## Install
