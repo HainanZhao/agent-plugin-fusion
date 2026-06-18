@@ -120,6 +120,8 @@ All via environment variables (`<KEY>` = agent name upper-cased, non-alphanumeri
 | `FUSION_CMD_<KEY>` | — | `custom` agent command (`bash -c`, with `$FUSION_PROMPT`/`$FUSION_MODEL`). |
 | `FUSION_CLAUDE_PERM` | `bypassPermissions` | `claude --permission-mode` (full tools; `acceptEdits` blocks Bash headless). |
 | `FUSION_GEMINI_APPROVAL` | `yolo` | `gemini --approval-mode`. |
+| `FUSION_GEMINI_TRUST` | `true` | Trust the worktree (`GEMINI_CLI_TRUST_WORKSPACE`) so Gemini's trusted-folder gate doesn't abort (exit 55). |
+| `FUSION_GEMINI_ISOLATE_FLAGS` | `-e none --allowed-mcp-server-names none` | Isolate Gemini from your global MCP servers/extensions (invalid in a throwaway worktree). Empty = inherit them. |
 | `FUSION_CODEX_FLAGS` | `--full-auto` | `codex exec` autonomy flags. |
 | `FUSION_OPENCODE_FLAGS` | `--dangerously-skip-permissions` | `opencode run` autonomy flags. |
 | `FUSION_TIMEOUT` | `0` | Per-agent timeout (s); `0` = none. |

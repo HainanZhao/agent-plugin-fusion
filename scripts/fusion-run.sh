@@ -32,6 +32,11 @@
 #                          since each agent is sandboxed to its worktree). Use
 #                          acceptEdits for edits-only (Bash blocked in headless).
 #   FUSION_GEMINI_APPROVAL gemini --approval-mode value.     Default: yolo
+#   FUSION_GEMINI_TRUST    true => trust the worktree (GEMINI_CLI_TRUST_WORKSPACE)
+#                          so Gemini's trusted-folder gate doesn't abort. Default: true
+#   FUSION_GEMINI_ISOLATE_FLAGS  flags isolating Gemini from the user's MCP
+#                          servers + extensions (invalid in a throwaway worktree).
+#                          Default: "-e none --allowed-mcp-server-names none". Empty = inherit.
 #   FUSION_CODEX_FLAGS     codex exec autonomy flags.        Default: --full-auto
 #   FUSION_OPENCODE_FLAGS  opencode run autonomy flags. Default: --dangerously-skip-permissions
 #   FUSION_TIMEOUT         Per-agent timeout in seconds.     Default: 0 (none)
@@ -71,6 +76,16 @@ BASE_REF="${FUSION_BASE_REF:-HEAD}"
 TIMEOUT="${FUSION_TIMEOUT:-0}"
 CLAUDE_PERM="${FUSION_CLAUDE_PERM:-bypassPermissions}"
 GEMINI_APPROVAL="${FUSION_GEMINI_APPROVAL:-yolo}"
+# Each worktree is a brand-new path Gemini has never seen, so it fails its
+# trusted-folder gate (exit 55) and silently downgrades --approval-mode. The
+# worktree IS the sandbox, so trust it. true => export GEMINI_CLI_TRUST_WORKSPACE.
+GEMINI_TRUST="${FUSION_GEMINI_TRUST:-true}"
+# Gemini otherwise inherits the user's global MCP servers + extensions, which
+# aren't valid in a throwaway worktree (e.g. an uninitialised codegraph index)
+# and can fatally error the headless turn. Default to isolating from both; set
+# empty to inherit them.
+# Note: `-` (not `:-`) so that setting it empty explicitly disables isolation.
+GEMINI_ISOLATE_FLAGS="${FUSION_GEMINI_ISOLATE_FLAGS--e none --allowed-mcp-server-names none}"
 CODEX_FLAGS="${FUSION_CODEX_FLAGS:---full-auto}"
 OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"
 WT_BASE="${FUSION_WORKTREE_DIR:-${TMPDIR:-/tmp}/fusion-wt}"
@@ -164,8 +179,14 @@ run_one() {
       cmd+=(${extra_arr[@]+"${extra_arr[@]}"})
       ;;
     gemini)
+      # Trust the worktree (it's the sandbox) so Gemini doesn't abort on its
+      # trusted-folder gate. Exported here in run_one's own (backgrounded)
+      # subshell, so it only affects this agent.
+      [ "$GEMINI_TRUST" = "true" ] && export GEMINI_CLI_TRUST_WORKSPACE=true
       cmd=(gemini -p "$PROMPT" --approval-mode "$GEMINI_APPROVAL")
       [ -n "$model" ] && cmd+=(--model "$model")
+      local gi_arr=(); [ -n "$GEMINI_ISOLATE_FLAGS" ] && read -r -a gi_arr <<< "$GEMINI_ISOLATE_FLAGS"
+      cmd+=(${gi_arr[@]+"${gi_arr[@]}"})
       cmd+=(${extra_arr[@]+"${extra_arr[@]}"})
       ;;
     codex)
