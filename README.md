@@ -19,8 +19,15 @@ flowchart TD
 
 ## Install
 
+Run these **one at a time** (not as a single paste). First add the marketplace:
+
 ```text
 /plugin marketplace add https://github.com/HainanZhao/agent-plugin-fusion.git
+```
+
+then install the plugin:
+
+```text
 /plugin install fusion@fusion-marketplace
 ```
 
