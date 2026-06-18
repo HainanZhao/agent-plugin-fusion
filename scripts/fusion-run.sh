@@ -27,7 +27,10 @@
 #   FUSION_CMD_<KEY>       For kind=custom: a command line run via `bash -c`
 #                          inside the worktree, with $FUSION_PROMPT and
 #                          $FUSION_MODEL exported for it to use.
-#   FUSION_CLAUDE_PERM     claude --permission-mode value.  Default: acceptEdits
+#   FUSION_CLAUDE_PERM     claude --permission-mode value.  Default:
+#                          bypassPermissions (all tools incl. Bash, no prompts,
+#                          since each agent is sandboxed to its worktree). Use
+#                          acceptEdits for edits-only (Bash blocked in headless).
 #   FUSION_GEMINI_APPROVAL gemini --approval-mode value.     Default: yolo
 #   FUSION_CODEX_FLAGS     codex exec autonomy flags.        Default: --full-auto
 #   FUSION_OPENCODE_FLAGS  opencode run autonomy flags. Default: --dangerously-skip-permissions
@@ -65,7 +68,7 @@ envget() { local n="$1"; printf '%s' "${!n:-$2}"; }
 AGENTS="${FUSION_AGENTS:-claude gemini}"
 BASE_REF="${FUSION_BASE_REF:-HEAD}"
 TIMEOUT="${FUSION_TIMEOUT:-0}"
-CLAUDE_PERM="${FUSION_CLAUDE_PERM:-acceptEdits}"
+CLAUDE_PERM="${FUSION_CLAUDE_PERM:-bypassPermissions}"
 GEMINI_APPROVAL="${FUSION_GEMINI_APPROVAL:-yolo}"
 CODEX_FLAGS="${FUSION_CODEX_FLAGS:---full-auto}"
 OPENCODE_FLAGS="${FUSION_OPENCODE_FLAGS:---dangerously-skip-permissions}"

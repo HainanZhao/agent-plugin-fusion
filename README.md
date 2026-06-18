@@ -35,7 +35,7 @@ isolated until you synthesize.
 
   | Agent | CLI | Headless invocation fusion uses |
   |---|---|---|
-  | `claude` | [Claude Code](https://docs.claude.com/en/docs/claude-code) | `claude -p … --permission-mode acceptEdits` |
+  | `claude` | [Claude Code](https://docs.claude.com/en/docs/claude-code) | `claude -p … --permission-mode bypassPermissions` |
   | `gemini` | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `gemini -p … --approval-mode yolo` |
   | `codex` | [OpenAI Codex CLI](https://github.com/openai/codex) | `codex exec --full-auto …` |
   | `opencode` | [opencode](https://github.com/sst/opencode) | `opencode run --dangerously-skip-permissions …` |
@@ -120,7 +120,7 @@ Everything is environment-variable driven, so you can set it per-shell, in
 | `FUSION_MODEL_<KEY>` | — | Model passed to that agent (e.g. `opus`, `gemini-2.5-pro`, `o4-mini`, `anthropic/claude-sonnet-4-6`). |
 | `FUSION_EXTRA_<KEY>` | — | Extra raw CLI flags appended to a known-kind agent. |
 | `FUSION_CMD_<KEY>` | — | For `kind=custom`: a command run via `bash -c` inside the worktree, with `$FUSION_PROMPT` / `$FUSION_MODEL` exported. |
-| `FUSION_CLAUDE_PERM` | `acceptEdits` | `claude --permission-mode` value. |
+| `FUSION_CLAUDE_PERM` | `bypassPermissions` | `claude --permission-mode`. Default gives all tools (incl. Bash) with no prompts; `acceptEdits` allows edits/grep/read but **blocks Bash** in headless mode. |
 | `FUSION_GEMINI_APPROVAL` | `yolo` | `gemini --approval-mode` value. |
 | `FUSION_CODEX_FLAGS` | `--full-auto` | Autonomy flags for `codex exec`. |
 | `FUSION_OPENCODE_FLAGS` | `--dangerously-skip-permissions` | Autonomy flags for `opencode run`. |
