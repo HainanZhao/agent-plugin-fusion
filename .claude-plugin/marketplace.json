@@ -11,10 +11,7 @@
       "name": "fusion",
       "description": "Fan a coding task out to Claude + Gemini in isolated git worktrees, then synthesize the best combined result.",
       "category": "productivity",
-      "source": {
-        "source": "directory",
-        "path": "."
-      }
+      "source": "./"
     }
   ]
 }
