@@ -2,16 +2,18 @@
 
 A Claude Code plugin that brings the **fusion / mixture-of-agents** idea (à la
 [OpenRouter's fusion API](https://openrouter.ai/)) to coding agents: fan the
-*same* task out to several agents in **parallel**, each isolated in its own **git
-worktree**, then let your Claude session **synthesize** the best combined result.
+*same* task out to several agents in **parallel**, then let your Claude session
+**synthesize** the best combined result. The baseline Claude candidate runs as a
+**subagent in your working tree**; every other agent runs headless in its own
+**git worktree** so they never collide.
 
 ```mermaid
 flowchart TD
     task([task]) --> run[fusion-run]
-    run -->|git worktree| wc["worktree: claude<br/>claude -p …"]
+    task --> sub["Claude subagent<br/>(in the main tree)"]
     run -->|git worktree| wg["worktree: gemini<br/>gemini -p …"]
-    run -->|git worktree| wx["worktree: … configurable<br/>codex / opencode / custom"]
-    wc --> agg{{Claude session<br/>= aggregator}}
+    run -->|git worktree| wx["worktree: … configurable<br/>codex / opencode / @claude:model"]
+    sub --> agg{{Claude session<br/>= aggregator}}
     wg --> agg
     wx --> agg
     agg --> out[(merged result in<br/>your working tree)]
@@ -26,7 +28,7 @@ flowchart TD
 
     class task task
     class run run
-    class wc claude
+    class sub claude
     class wg gemini
     class wx other
     class agg agg
@@ -74,8 +76,9 @@ as a `custom` agent.
 /fusion add retry-with-backoff to the HTTP client and cover it with a test
 ```
 
-Spins up one worktree per agent, runs them in parallel, then synthesizes the best
-combined change into your working tree and cleans up.
+Runs the baseline Claude as a subagent in your tree and the other agents in
+worktrees (in parallel), then synthesizes the best combined change into your
+working tree and cleans up.
 
 ### Picking the roster inline
 
@@ -83,14 +86,17 @@ Prefix the task with `@agent[:model]` tokens. **Claude is always folded in**, so
 named agents are fused *with* Claude:
 
 ```text
-/fusion @gemini:gemini-3.1-pro fix the race    # Claude + Gemini          (merge of 2)
-/fusion @gemini @codex add a test              # Claude + Gemini + Codex  (merge of 3)
-/fusion @claude:opus @gemini refactor auth     # Claude(opus) + Gemini    (no dup)
-/fusion add retry logic                         # default roster: claude gemini
+/fusion @gemini:gemini-3.1-pro fix the race    # Claude + Gemini              (merge of 2)
+/fusion @gemini @codex add a test              # Claude + Gemini + Codex      (merge of 3)
+/fusion @claude:opus @gemini refactor auth     # Claude + Claude·opus + Gemini (merge of 3)
+/fusion add retry logic                         # default: Claude + Gemini
 ```
 
-Only `@tokens` naming a known/configured agent are consumed. Set
-`FUSION_BASE_AGENT=""` to drop the implicit Claude baseline.
+An explicit `@claude:model` is an **extra** candidate (its own worktree, merged
+too) — not a duplicate of the baseline. Only `@tokens` naming a known/configured
+agent are consumed. Set `FUSION_BASE_AGENT=""` to drop the implicit Claude
+baseline; set `FUSION_CLAUDE_MODE=worktree` to run the baseline Claude headless in
+a worktree instead of as a subagent.
 
 ### Cleanup
 
@@ -108,8 +114,14 @@ next to `myproj`). Same depth matters: relative paths in your repo config (e.g.
 Gemini settings pointing at `../lib`) resolve the same from a worktree as from
 the repo. Override the parent dir with `FUSION_WORKTREE_DIR` (note: that nests
 them and breaks `../` depth). Run artifacts live in `.fusion/runs/<runid>/`
-(auto-excluded from git). Nothing touches your working tree until the aggregator
-applies the merge.
+(auto-excluded from git).
+
+The **baseline Claude candidate is the exception**: it runs as a subagent
+directly in your working tree (no worktree — that's the whole point of saving a
+folder), so the tree *is* modified during the run, then the worktree agents'
+diffs are reconciled into it. Commit/stash first if you want a clean baseline.
+Set `FUSION_CLAUDE_MODE=worktree` to make Claude run headless in a worktree like
+the others (tree stays pristine until merge, at the cost of one more folder).
 
 ## Configuration
 
@@ -120,6 +132,7 @@ All via environment variables (`<KEY>` = agent name upper-cased, non-alphanumeri
 |---|---|---|
 | `FUSION_AGENTS` | `claude gemini` | Default roster (when no inline `@agent`). |
 | `FUSION_BASE_AGENT` | `claude` | Agent always added to an inline roster. Empty = none. |
+| `FUSION_CLAUDE_MODE` | `subagent` | Baseline Claude as a `subagent` in the main tree (no worktree) or `worktree` (headless, own worktree). |
 | `FUSION_KIND_<KEY>` | inferred | `claude`\|`gemini`\|`codex`\|`opencode`\|`custom`. |
 | `FUSION_MODEL_<KEY>` | — | Model for that agent (e.g. `opus`, `o4-mini`). |
 | `FUSION_EXTRA_<KEY>` | — | Extra CLI flags for a known-kind agent. |

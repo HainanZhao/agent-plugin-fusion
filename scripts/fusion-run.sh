@@ -74,6 +74,13 @@ envget() { local n="$1"; printf '%s' "${!n:-$2}"; }
 
 # --- config ---------------------------------------------------------------
 AGENTS="${FUSION_AGENTS:-claude gemini}"
+BASE_AGENT="${FUSION_BASE_AGENT-claude}"
+# How the baseline Claude candidate runs: "subagent" (in the main tree, no
+# worktree — saves a folder; the orchestrating session spawns it) or "worktree"
+# (headless `claude -p` in its own worktree, like every other agent). Only the
+# BASELINE claude is affected; an explicit @claude:model is always a separate
+# worktree candidate.
+CLAUDE_MODE="${FUSION_CLAUDE_MODE:-subagent}"
 BASE_REF="${FUSION_BASE_REF:-HEAD}"
 TIMEOUT="${FUSION_TIMEOUT:-0}"
 CLAUDE_PERM="${FUSION_CLAUDE_PERM:-bypassPermissions}"
@@ -110,9 +117,11 @@ worktree_path() {
 # --- inline roster: leading @agent[:model] tokens on the prompt ------------
 # e.g.  fusion-run.sh "@gemini:gemini-3.1-pro  refactor the parser"
 # Inline agents are ADDED to a baseline agent (Claude by default), so:
-#   @gemini:x <task>            -> fuse claude + gemini      (2 candidates)
-#   @claude:opus @codex <task>  -> fuse claude(opus) + codex (2 candidates)
-#   @gemini @codex <task>       -> fuse claude + gemini + codex (3 candidates)
+#   @gemini:x <task>            -> fuse claude + gemini          (2 candidates)
+#   @gemini @codex <task>       -> fuse claude + gemini + codex  (3 candidates)
+#   @claude:opus @gemini <task> -> fuse claude(baseline) + claude:opus + gemini
+#                                  (an explicit @claude:model is an EXTRA candidate
+#                                   in its own worktree, NOT a duplicate baseline)
 # The baseline is FUSION_BASE_AGENT (default "claude"); set it empty to run only
 # the agents you list. Only @tokens naming a KNOWN/configured agent are consumed,
 # so a task that legitimately begins with "@something" is left intact.
@@ -124,22 +133,35 @@ is_known_agent() {
   case " $AGENTS " in *" $1 "*) return 0 ;; esac
   return 1
 }
+infer_kind() {
+  case "$1" in claude) printf claude ;; gemini) printf gemini ;;
+               codex) printf codex ;; opencode) printf opencode ;;
+               *) printf custom ;; esac
+}
 
 inline_agents=""
 while [[ "$PROMPT" =~ ^@([^[:space:]:]+)(:([^[:space:]]+))?[[:space:]]+(.*)$ ]]; do
   name="${BASH_REMATCH[1]}"; model="${BASH_REMATCH[3]}"; rest="${BASH_REMATCH[4]}"
   is_known_agent "$name" || break
-  inline_agents+="${inline_agents:+ }$name"
-  [ -n "$model" ] && export "FUSION_MODEL_$(keyvar "$name")=$model"
+  key="$name"
+  # An explicit @baseline:model (e.g. @claude:opus when claude is the baseline)
+  # is a distinct extra candidate — give it its own key so it gets its own
+  # worktree and isn't conflated with the baseline subagent.
+  if [ "$name" = "$BASE_AGENT" ] && [ -n "$model" ]; then
+    key="$name-$(printf '%s' "$model" | LC_ALL=C tr -c 'A-Za-z0-9' '-')"
+    export "FUSION_KIND_$(keyvar "$key")=$(infer_kind "$name")"
+  fi
+  # de-dupe keys within this run
+  while [[ " $inline_agents " == *" $key "* ]]; do key="$key-x"; done
+  inline_agents+="${inline_agents:+ }$key"
+  [ -n "$model" ] && export "FUSION_MODEL_$(keyvar "$key")=$model"
   PROMPT="$rest"
 done
 if [ -n "$inline_agents" ]; then
   [ -n "$PROMPT" ] || die "agents specified but no task given."
-  # Always fold in the baseline agent (Claude) unless it's already listed or
-  # the user disabled it with FUSION_BASE_AGENT="".
-  base="${FUSION_BASE_AGENT-claude}"
-  if [ -n "$base" ] && [[ " $inline_agents " != *" $base "* ]]; then
-    AGENTS="$base $inline_agents"
+  # Always fold in the baseline agent unless already listed or disabled (empty).
+  if [ -n "$BASE_AGENT" ] && [[ " $inline_agents " != *" $BASE_AGENT "* ]]; then
+    AGENTS="$BASE_AGENT $inline_agents"
   else
     AGENTS="$inline_agents"
   fi
@@ -173,10 +195,19 @@ run_one() {
     esac
   fi
 
+  local status_file="$RUNDIR/$key.status"
+
+  # The baseline Claude runs as a subagent in the main tree (no worktree) — the
+  # orchestrating session spawns it; the script just records the intent.
+  if [ "$key" = "$BASE_AGENT" ] && [ "$kind" = "claude" ] && [ "$CLAUDE_MODE" = "subagent" ]; then
+    printf 'mode=subagent model=%s\n' "$model" > "$status_file"
+    err "[$key] subagent mode — runs in the main tree (no worktree)"
+    return 0
+  fi
+
   local wt; wt="$(worktree_path "$RUNID" "$key")"
   local branch="fusion/$RUNID/$key"
   local log="$RUNDIR/$key.log"
-  local status_file="$RUNDIR/$key.status"
 
   mkdir -p "$(dirname "$wt")"
   if ! git -C "$REPO_ROOT" worktree add -b "$branch" "$wt" "$BASE_REF" >>"$log" 2>&1; then
@@ -267,12 +298,25 @@ for agent in $AGENTS; do
 done
 for pid in "${pids[@]}"; do wait "$pid"; done
 
+# Partition the roster into worktree agents and main-tree subagents.
+worktree_agents=""; subagents=""
+for agent in $AGENTS; do
+  if grep -q '^mode=subagent' "$RUNDIR/$agent.status" 2>/dev/null; then
+    subagents="${subagents:+$subagents }$agent"
+  else
+    worktree_agents="${worktree_agents:+$worktree_agents }$agent"
+  fi
+done
+
 # --- machine-readable manifest for the synthesizer -------------------------
 {
   printf 'FUSION_RUN_ID=%s\n' "$RUNID"
   printf 'FUSION_RUN_DIR=%s\n' "$RUNDIR"
   printf 'FUSION_REPO=%s\n' "$REPO_ROOT"
   printf 'FUSION_AGENTS=%s\n' "$AGENTS"
+  printf 'FUSION_WORKTREE_AGENTS=%s\n' "$worktree_agents"
+  printf 'FUSION_SUBAGENTS=%s\n' "$subagents"
+  printf 'FUSION_CLAUDE_MODEL=%s\n' "$(envget "FUSION_MODEL_$(keyvar "$BASE_AGENT")" "")"
   printf 'FUSION_TASK=%s\n' "$PROMPT"
 } > "$RUNDIR/manifest.env"
 
@@ -290,9 +334,17 @@ for agent in $AGENTS; do
   fi
 done
 echo "----------------------------------------------------------"
-echo "Per-agent artifacts (read these to synthesize):"
-for agent in $AGENTS; do
-  echo "  $agent: transcript=$RUNDIR/$agent.log  diff=$RUNDIR/$agent.diff"
-done
+if [ -n "$worktree_agents" ]; then
+  echo "Worktree candidates (read these diffs to synthesize):"
+  for agent in $worktree_agents; do
+    echo "  $agent: transcript=$RUNDIR/$agent.log  diff=$RUNDIR/$agent.diff"
+  done
+fi
+if [ -n "$subagents" ]; then
+  echo "Main-tree candidates (the orchestrator runs these as subagents):"
+  for agent in $subagents; do
+    echo "  $agent: run as a subagent in the repo, then read its changes via 'git diff'"
+  done
+fi
 echo "Cleanup when done:  fusion-cleanup.sh $RUNID"
 echo "=========================================================="
