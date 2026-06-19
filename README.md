@@ -53,22 +53,23 @@ Use the full `https://…` URL (the `owner/repo` shorthand can clone over SSH an
 fail until you've run `ssh -T git@github.com` once). For local dev:
 `/plugin marketplace add ./`.
 
-The commands are **`/fusion:run`** and **`/fusion:cleanup`** (plugin commands are
-always `plugin:command`). To type just **`/fusion`**, drop the included wrapper
-into your user commands:
+This gives you **`/fusion:run`** and **`/fusion:cleanup`** (plugin commands are
+always `plugin:command`).
+
+**Requires** a git repo plus the CLIs for the agents you use. Built-ins (each run
+headless): `claude`, `gemini`, `codex`, `opencode`. Any other headless CLI works
+as a `custom` agent.
+
+### Optional: type `/fusion` instead of `/fusion:run`
+
+Drop the bundled wrapper into your user commands (it just forwards to
+`/fusion:run`):
 
 ```bash
 mkdir -p ~/.claude/commands && curl -fsSL \
   https://raw.githubusercontent.com/HainanZhao/agent-plugin-fusion/main/extras/fusion.md \
   -o ~/.claude/commands/fusion.md
 ```
-
-(or copy `extras/fusion.md` from a local checkout). It just forwards to
-`/fusion:run`.
-
-**Requires** a git repo plus the CLIs for the agents you use. Built-ins (each run
-headless): `claude`, `gemini`, `codex`, `opencode`. Any other headless CLI works
-as a `custom` agent.
 
 ## Usage
 
