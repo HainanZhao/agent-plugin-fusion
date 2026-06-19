@@ -49,10 +49,6 @@ then install the plugin:
 /plugin install fusion@fusion-marketplace
 ```
 
-Use the full `https://…` URL (the `owner/repo` shorthand can clone over SSH and
-fail until you've run `ssh -T git@github.com` once). For local dev:
-`/plugin marketplace add ./`.
-
 This gives you **`/fusion:run`** and **`/fusion:cleanup`** (plugin commands are
 always `plugin:command`).
 
