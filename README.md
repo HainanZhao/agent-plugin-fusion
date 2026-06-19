@@ -60,21 +60,10 @@ always `plugin:command`).
 headless): `claude`, `gemini`, `codex`, `opencode`. Any other headless CLI works
 as a `custom` agent.
 
-### Optional: type `/fusion` instead of `/fusion:run`
-
-Drop the bundled wrapper into your user commands (it just forwards to
-`/fusion:run`):
-
-```bash
-mkdir -p ~/.claude/commands && curl -fsSL \
-  https://raw.githubusercontent.com/HainanZhao/agent-plugin-fusion/main/extras/fusion.md \
-  -o ~/.claude/commands/fusion.md
-```
-
 ## Usage
 
 ```text
-/fusion add retry-with-backoff to the HTTP client and cover it with a test
+/fusion:run add retry-with-backoff to the HTTP client and cover it with a test
 ```
 
 Runs the baseline Claude as a subagent in your tree and the other agents in
@@ -87,10 +76,10 @@ Prefix the task with `@agent[:model]` tokens. **Claude is always folded in**, so
 named agents are fused *with* Claude:
 
 ```text
-/fusion @gemini:gemini-3.1-pro fix the race    # Claude + Gemini              (merge of 2)
-/fusion @gemini @codex add a test              # Claude + Gemini + Codex      (merge of 3)
-/fusion @claude:opus @gemini refactor auth     # Claude + Claude·opus + Gemini (merge of 3)
-/fusion add retry logic                         # default: Claude + Gemini
+/fusion:run @gemini:gemini-3.1-pro fix the race   # Claude + Gemini              (merge of 2)
+/fusion:run @gemini @codex add a test             # Claude + Gemini + Codex      (merge of 3)
+/fusion:run @claude:opus @gemini refactor auth    # Claude + Claude·opus + Gemini (merge of 3)
+/fusion:run add retry logic                        # default: Claude + Gemini
 ```
 
 An explicit `@claude:model` is an **extra** candidate (its own worktree, merged
